@@ -1,0 +1,168 @@
+--CREATE DATABASE Flight_Delays
+/*
+SELECT * FROM airlines
+SELECT * FROM airports
+SELECT * FROM cancellation_codes
+SELECT * FROM flights
+*/
+--1) Query to show all flights taken on 2015-1-2 ONLY:
+
+WITH flightWithDate as (
+SELECT *, CONCAT([YEAR], '-', [MONTH], '-', [DAY]) as Full_Date
+FROM flights)
+SELECT *
+FROM flightWithDate
+WHERE Full_Date = '2015-1-2'
+
+--2a) Checking for Duplicates in the "FlightS" table (by comparing values in the following columns: YEAR, MONTH, DAY, DAY_OF_WEEK, AIRLINE, 
+--FLIGHT_NUMBER, TAIL_NUMBER, ORIGIN_AIRPORT, DESTINATION_AIRPORT, SCHEDULED_DEPATURE, DEPATURE_TIME, DEPARTURE_DELAY, TAXI_OUT)
+SELECT 
+    *,
+    ROW_NUMBER() OVER(
+    PARTITION BY 
+        [YEAR],
+        [MONTH],
+        [DAY],
+        DAY_OF_WEEK,
+        AIRLINE,
+        FLIGHT_NUMBER,
+        TAIL_NUMBER,
+        ORIGIN_AIRPORT,
+        DESTINATION_AIRPORT,
+        SCHEDULED_DEPARTURE,
+        DEPARTURE_TIME,
+        DEPARTURE_DELAY,
+        TAXI_OUT
+    ORDER BY FLIGHT_NUMBER
+    ) AS DUPLICATES
+FROM flights
+
+--2b) find any duplicate using a common table expression: 
+WITH DUPLICATE_CHECKED AS(
+SELECT 
+    *,
+    ROW_NUMBER() OVER(
+    PARTITION BY 
+        [YEAR],
+        [MONTH],
+        [DAY],
+        DAY_OF_WEEK,
+        AIRLINE,
+        FLIGHT_NUMBER,
+        TAIL_NUMBER,
+        ORIGIN_AIRPORT,
+        DESTINATION_AIRPORT,
+        SCHEDULED_DEPARTURE,
+        DEPARTURE_TIME,
+        DEPARTURE_DELAY,
+        TAXI_OUT
+    ORDER BY FLIGHT_NUMBER
+    ) AS DUPLICATES
+FROM flights)
+SELECT *
+    FROM DUPLICATE_CHECKED
+    WHERE DUPLICATES > 1
+
+--2c) Query showing distinct dates on the flights table:
+
+WITH flightWithDate as (
+SELECT *, CONCAT([YEAR], '-', [MONTH], '-', [DAY]) as Full_Date
+    FROM flights)
+SELECT DISTINCT Full_Date
+    FROM flightWithDate
+    ORDER BY Full_Date
+
+--3) How does the overall flight volume vary by month? By day of week?
+--a) By month:
+
+SELECT 
+    CAST([MONTH]AS INT) AS [MONTH], 
+    COUNT(FLIGHT_NUMBER) AS COUNTS
+FROM flights
+    GROUP BY [MONTH]
+    ORDER BY 1
+--3b) By day of the week:
+
+SELECT 
+    CAST([DAY_OF_WEEK] AS INT) AS [DAY_OF_WEEK], 
+    COUNT(FLIGHT_NUMBER) AS COUNTS
+FROM flights
+    GROUP BY [DAY_OF_WEEK]
+    ORDER BY 1
+
+--4) Query that shows how many flights had depature delays:
+
+SELECT 
+    [YEAR], 
+    COUNT(FLIGHT_NUMBER) AS Count_with_Depature_Delays
+FROM flights
+WHERE DEPARTURE_DELAY > '0'
+GROUP BY [YEAR]
+--5) total count of all flights:
+
+SELECT 
+    COUNT(FLIGHT_NUMBER) AS Total_Count_Of_FLights
+FROM flights
+
+--6) New column that shows month_name:
+SELECT 
+    *,
+    CASE
+        WHEN [MONTH] = 1 THEN 'Jan'
+        WHEN [MONTH] = 2 THEN 'Feb'
+        WHEN [MONTH] = 3 THEN 'Mar'
+        WHEN [MONTH] = 4 THEN 'Apr'
+        WHEN [MONTH] = 5 THEN 'May'
+        WHEN [MONTH] = 6 THEN 'Jun'
+        WHEN [MONTH] = 7 THEN 'Jul'
+        WHEN [MONTH] = 8 THEN 'Aug'
+        WHEN [MONTH] = 9 THEN 'Sep'
+        WHEN [MONTH] = 10 THEN 'Oct'
+        WHEN [MONTH] = 11 THEN 'Nov'
+        WHEN [MONTH] = 12 THEN 'Dec'
+    END AS Month_Name
+FROM flights
+
+--7) Show the % depature delays through out the year:
+SELECT 
+    CASE
+        WHEN [MONTH] = 1 THEN 'Jan'
+        WHEN [MONTH] = 2 THEN 'Feb'
+        WHEN [MONTH] = 3 THEN 'Mar'
+        WHEN [MONTH] = 4 THEN 'Apr'
+        WHEN [MONTH] = 5 THEN 'May'
+        WHEN [MONTH] = 6 THEN 'Jun'
+        WHEN [MONTH] = 7 THEN 'Jul'
+        WHEN [MONTH] = 8 THEN 'Aug'
+        WHEN [MONTH] = 9 THEN 'Sep'
+        WHEN [MONTH] = 10 THEN 'Oct'
+        WHEN [MONTH] = 11 THEN 'Nov'
+        WHEN [MONTH] = 12 THEN 'Dec'
+    END AS Month_Name,
+    COUNT(FLIGHT_NUMBER) AS No_Flights_Delayed
+FROM flights
+WHERE DEPARTURE_DELAY > 0
+GROUP BY [MONTH]
+ORDER BY 2
+
+--8) show cancellations due to weather:
+
+SELECT 
+    [MONTH],
+    count(CANCELLED) AS Cancelled_Due_To_Weather
+FROM flights
+where CANCELLATION_REASON = 'B'
+GROUP BY [MONTH]
+
+--9) Show reasons why flights where canceled
+
+SELECT 
+    DISTINCT flights.AIRLINE,
+    COUNT(flights.AIRLINE) AS Total_Count_Of_FLights,
+    cancellation_codes.CANCELLATION_DESCRIPTION
+FROM flights 
+INNER JOIN cancellation_codes ON
+flights.CANCELLATION_REASON = cancellation_codes.CANCELLATION_REASON
+GROUP BY 
+    flights.AIRLINE, 
+    cancellation_codes.CANCELLATION_DESCRIPTION
